@@ -12,3 +12,7 @@ app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
 module.exports = app;
+
+const cors = require('cors');const cors = require('cors');
+// Enable CORS for all domains
+app.use(cors());
