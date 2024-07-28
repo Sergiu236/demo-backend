@@ -9,7 +9,7 @@ const cors = require('cors');
 app.use(cors());
 
 app.get('/api/hello', async (req: Request, res: Response) => {
-  return res.status(200).json({ message: 'Hello World' });
+  return res.status(200).json({ message: 'what s up my GG' });
 });
 
 app.listen(port, () => {
