@@ -1,14 +1,22 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
- 
+import express from 'express';
+import bodyParser from 'body-parser';
+import cors from 'cors';
+
 const app = express();
 const port = 3000;
- 
+
 app.use(cors());
 app.use(bodyParser.json());
- 
-const rooms = [
+
+interface Room {
+  id: number;
+  name: string;
+  price: number;
+  description: string;
+  photo: string;
+}
+
+const rooms: Room[] = [
   { id: 1, name: 'Deluxe Suite', price: 200, description: 'A luxurious suite with a sea view.', photo: 'https://t3.ftcdn.net/jpg/02/71/08/28/360_F_271082810_CtbTjpnOU3vx43ngAKqpCPUBx25udBrg.jpg' },
   { id: 2, name: 'Standard Room', price: 120, description: 'A comfortable room with all basic amenities.', photo: 'https://t3.ftcdn.net/jpg/06/19/00/08/360_F_619000872_AxiwLsfQqRHMkNxAbN4l5wg1MsPgBsmo.jpg' },
   { id: 3, name: 'Economy Room', price: 80, description: 'An affordable room for budget-conscious travelers.', photo: 'https://www.rwlasvegas.com/wp-content/uploads/2022/05/crockfords-las-vegas-standard-deluxe-bedroom_1000x880.jpg' },
@@ -22,33 +30,39 @@ const rooms = [
   { id: 11, name: 'Single Room', price: 70, description: 'An economical room for single travelers.', photo: 'https://t3.ftcdn.net/jpg/02/71/08/28/360_F_271082810_CtbTjpnOU3vx43ngAKqpCPUBx25udBrg.jpg' },
   { id: 12, name: 'Suite with Balcony', price: 220, description: 'A suite with a private balcony and view.', photo: 'https://t3.ftcdn.net/jpg/06/19/00/08/360_F_619000872_AxiwLsfQqRHMkNxAbN4l5wg1MsPgBsmo.jpg' }
 ];
- 
- 
- 
-const reservations = [];
- 
+
+interface Reservation {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  roomId: number;
+}
+
+const reservations: Reservation[] = [];
+
 app.get('/api/rooms', (req, res) => {
   res.json(rooms);
 });
- 
+
 app.post('/api/reserve', (req, res) => {
-  const { name, email, phone, roomId } = req.body;
+  const { name, email, phone, roomId } = req.body as Reservation;
   if (!name || !email || !phone || !roomId) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
- 
-  const reservation = { id: reservations.length + 1, name, email, phone, roomId};
+
+  const reservation: Reservation = { id: reservations.length + 1, name, email, phone, roomId };
   reservations.push(reservation);
- 
+
   console.log(`Reservation received: Room ID ${roomId}, Name ${name}, Email ${email}, Phone ${phone}`);
- 
+
   res.status(200).json({ message: 'Reservation successful' });
 });
- 
+
 app.get('/api/reservations', (req, res) => {
   res.json(reservations);
 });
- 
+
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });
