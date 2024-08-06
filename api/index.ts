@@ -2,6 +2,8 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 
+const db = require('./firebaseAdmin');
+
 const app = express();
 const port = 3000;
 
@@ -51,16 +53,29 @@ app.post('/api/reserve', (req, res) => {
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
-  const reservation: Reservation = { id: reservations.length + 1, name, email, phone, roomId };
-  reservations.push(reservation);
+  const reservation: Reservation = { id: 1, name, email, phone, roomId };
+  
+  const ref = db.ref('/client/${id}');
+  ref.set( reservation, error => {
+    if (error) {
+      res.status(500).send("Data could not be saved." + error);
+    } else {
+      res.send("Data saved successfully.");
+    }
+  });
 
-  console.log(`Reservation received: Room ID ${roomId}, Name ${name}, Email ${email}, Phone ${phone}`);
 
-  res.status(200).json({ message: 'Reservation successful' });
 });
 
 app.get('/api/reservations', (req, res) => {
-  res.json(reservations);
+  
+
+  const ref = db.ref('/client');
+  ref.once('value', (snapshot) => {
+    const reservations = Object.keys(snapshot.val()).map(key => snapshot.val()[key]);
+    res.json(reservations);
+  });
+
 });
 
 app.listen(port, () => {
