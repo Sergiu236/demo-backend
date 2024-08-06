@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 
-const db = require('./firebaseConfig');
+import  db  from '../firebaseConfig.js';
 
 const app = express();
 const PORT = 5000;
