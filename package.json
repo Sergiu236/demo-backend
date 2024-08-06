@@ -19,5 +19,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.1.0"
-  }
+  },
+  "type": "module"
+
 }
+
