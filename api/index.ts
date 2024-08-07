@@ -59,7 +59,9 @@ app.post('/api/reserve', (req, res) => {
 
   const reservation: Reservation = { id, name, email, phone, roomId, date : "10.11.2022"};
   
-  const path_to_mata = '/client/3';
+  const strId = '4';
+
+  const path_to_mata = '/client/' + strId;
 
   const ref = db.ref(path_to_mata);
   ref.set( reservation, error => {
