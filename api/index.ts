@@ -61,7 +61,7 @@ app.post('/api/reserve', (req, res) => {
   
   const strId = '4';
 
-  const path_to_mata = '/client/' + strId;
+  const path_to_mata = '/client/' + id;
 
   const ref = db.ref(path_to_mata);
   ref.set( reservation, error => {
