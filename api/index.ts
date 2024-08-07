@@ -54,7 +54,7 @@ app.post('/api/reserve', (req, res) => {
   }
   const id = uuidv4();
 
-  const reservation: Reservation = { id, name, email, phone, roomId, date : "10.11.2022"};
+  const reservation: Reservation = { id, name, email, phone, roomId, date : ""};
 
   const ref = db.ref('/client/' + id);
   ref.set( reservation, error => {
