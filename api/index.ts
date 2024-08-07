@@ -47,12 +47,12 @@ app.get('/api/rooms', (req, res) => {
 });
 
 app.post('/api/reserve', (req, res) => {
-  const { id, name, email, phone, roomId } = req.body as Reservation;
+  const { name, email, phone, roomId } = req.body as Reservation;
   if (!name || !email || !phone || !roomId) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
-  const reservation: Reservation = { id, name, email, phone, roomId, date : "10.11.2022"};
+  const reservation: Reservation = { id: "1", name, email, phone, roomId, date : "10.11.2022"};
   
   const ref = db.ref('/client/1');
   ref.set( reservation, error => {
