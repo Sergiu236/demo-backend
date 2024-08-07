@@ -55,11 +55,13 @@ app.post('/api/reserve', (req, res) => {
   const id = uuidv4();
 
   
-  const numericId = 2;
+  const numericId = '2';
 
   const reservation: Reservation = { id, name, email, phone, roomId, date : "10.11.2022"};
   
-  const ref = db.ref('/client/2');
+  const path_to_mata = '/client/3';
+
+  const ref = db.ref(path_to_mata);
   ref.set( reservation, error => {
     if (error) {
       res.status(500).send("Data could not be saved." + error);
