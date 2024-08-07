@@ -54,11 +54,8 @@ app.post('/api/reserve', (req, res) => {
   }
   const id = uuidv4();
 
-  function getRandomInt(max) {
-    return Math.floor(Math.random() * max);
-  }
   
-  const numericId = getRandomInt(Number.MAX_SAFE_INTEGER);
+  const numericId = 2;
 
   const reservation: Reservation = { id, name, email, phone, roomId, date : "10.11.2022"};
   
