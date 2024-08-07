@@ -52,10 +52,11 @@ app.post('/api/reserve', (req, res) => {
   if (!name || !email || !phone || !roomId) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
+  const id = uuidv4();
 
-  const reservation: Reservation = { id: uuidv4(), name, email, phone, roomId, date : "10.11.2022"};
+  const reservation: Reservation = { id, name, email, phone, roomId, date : "10.11.2022"};
   
-  const ref = db.ref('/client/1');
+  const ref = db.ref('/client/${id}');
   ref.set( reservation, error => {
     if (error) {
       res.status(500).send("Data could not be saved." + error);
