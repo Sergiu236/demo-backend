@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import { v4 as uuidv4 } from 'uuid';
 
 import db from '../firebaseConfig.js';
 
@@ -52,7 +53,7 @@ app.post('/api/reserve', (req, res) => {
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
-  const reservation: Reservation = { id: "1", name, email, phone, roomId, date : "10.11.2022"};
+  const reservation: Reservation = { id: uuidv4(), name, email, phone, roomId, date : "10.11.2022"};
   
   const ref = db.ref('/client/1');
   ref.set( reservation, error => {
