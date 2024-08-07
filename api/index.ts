@@ -56,7 +56,7 @@ app.post('/api/reserve', (req, res) => {
 
   const reservation: Reservation = { id, name, email, phone, roomId, date : "10.11.2022"};
   
-  const ref = db.ref('/client/1');
+  const ref = db.ref('/client');
   ref.set( reservation, error => {
     if (error) {
       res.status(500).send("Data could not be saved." + error);
