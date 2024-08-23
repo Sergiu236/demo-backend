@@ -43,9 +43,7 @@ interface Reservation {
 app.use(cors());
 app.use(express.json());
 
-app.get('/api/rooms', (req, res) => {
-  res.json(rooms);
-});
+
 
 app.post('/api/reserve', (req, res) => {
   const { name, email, phone, roomId } = req.body as Reservation;
@@ -78,6 +76,64 @@ app.get('/api/reservations', (req, res) => {
   });
 
 });
+
+
+
+
+
+
+///////////////////////////////// the new code for CRUD API for rooms ////////////////////////////
+
+// Get all rooms
+app.get('/api/rooms', (req, res) => {
+  res.json(rooms);
+});
+
+// Get a single room by ID
+app.get('/api/rooms/:id', (req, res) => {
+  const room = rooms.find(r => r.id === req.params.id);
+  if (room) {
+    res.json(room);
+  } else {
+    res.status(404).json({ message: 'Room not found' });
+  }
+});
+
+// Create a new room
+app.post('/api/rooms', (req, res) => {
+  const { name, price, description, photo } = req.body as Room;
+  const newRoom = { id: uuidv4(), name, price, description, photo };
+  rooms.push(newRoom);
+  res.status(201).json(newRoom);
+});
+
+// Update a room by ID
+app.put('/api/rooms/:id', (req, res) => {
+  const room = rooms.find(r => r.id === req.params.id);
+  if (room) {
+    const { name, price, description, photo } = req.body as Room;
+    room.name = name || room.name;
+    room.price = price || room.price;
+    room.description = description || room.description;
+    room.photo = photo || room.photo;
+    res.json(room);
+  } else {
+    res.status(404).json({ message: 'Room not found' });
+  }
+});
+
+// Delete a room by ID
+app.delete('/api/rooms/:id', (req, res) => {
+  const roomIndex = rooms.findIndex(r => r.id === req.params.id);
+  if (roomIndex !== -1) {
+    rooms.splice(roomIndex, 1);
+    res.json({ message: 'Room deleted successfully' });
+  } else {
+    res.status(404).json({ message: 'Room not found' });
+  }
+});
+
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
