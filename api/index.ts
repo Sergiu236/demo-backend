@@ -86,25 +86,27 @@ app.get('/api/reservations', (req, res) => {
 
 // Get all rooms
 app.get('/api/rooms', (req, res) => {
-  res.json(rooms);
+  const ref = db.ref('/rooms');
+  ref.once('value', (snapshot) => {
+    const rooms = Object.keys(snapshot.val()).map(key => snapshot.val()[key]);
+    res.json(rooms);
+  });
 });
 
-// Get a single room by ID
-app.get('/api/rooms/:id', (req, res) => {
-  const room = rooms.find(r => r.id === req.params.id);
-  if (room) {
-    res.json(room);
-  } else {
-    res.status(404).json({ message: 'Room not found' });
-  }
-});
+
 
 // Create a new room
 app.post('/api/rooms', (req, res) => {
   const { name, price, description, photo } = req.body as Room;
   const newRoom = { id: uuidv4(), name, price, description, photo };
-  rooms.push(newRoom);
-  res.status(201).json(newRoom);
+  const ref = db.ref('/rooms/' + newRoom.id);
+  ref.set( newRoom, error => {
+    if (error) {
+      res.status(500).send("Data could not be saved." + error);
+    } else {
+      res.send("Data saved successfully.");
+    }
+  });
 });
 
 // Update a room by ID
