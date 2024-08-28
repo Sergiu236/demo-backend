@@ -93,23 +93,83 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 // Get all rooms
-app.get('/api/rooms', async (req, res) => {
-  const ref = db.ref('/rooms');
-  ref.once('value', async (snapshot) => {
-    const roomsData = snapshot.val();
-    const rooms = await Promise.all(
-      Object.keys(roomsData).map(async (key) => {
-        const room = roomsData[key];
-        const photoUrl = await admin.storage().bucket().file(`rooms/${room.id}`).getSignedUrl({
-          action: 'read',
-          expires: '03-09-2491' // Set a far future date for expiration or adjust as needed
-        });
-        return { ...room, photo: photoUrl[0] };
-      })
-    );
-    res.json(rooms);
-  });
+app.get('/api/rooms', async (req: Request, res: Response) => {
+  try {
+      // Reference to the rooms collection in the Realtime Database
+      const roomsRef = db.ref('/rooms');
+
+      // Retrieve all room data from the database
+      roomsRef.once('value', async (snapshot) => {
+          const rooms = snapshot.val();
+          if (!rooms) {
+              return res.status(404).send('No rooms found');
+          }
+
+          // Prepare to fetch URLs from Firebase Storage for each room
+          const roomsWithImages = await Promise.all(Object.keys(rooms).map(async (roomId) => {
+              const roomData = rooms[roomId];
+              const imageRef = bucket.file(`images/${roomId}`);
+
+              // Get the URL for the image
+              const signedUrls = await imageRef.getSignedUrl({
+                  action: 'read',
+                  expires: '03-09-2491'  // Set far future expiry date
+              });
+
+              // Add the image URL to the room data
+              roomData.photo = signedUrls[0];
+              return roomData;  // Return the enhanced room data
+          }));
+
+          res.status(200).json(roomsWithImages);
+      }, (error) => {
+          console.error('Failed to retrieve data:', error);
+          res.status(500).send('Error retrieving rooms data');
+      });
+  } catch (error) {
+      console.error('Error fetching rooms:', error);
+      res.status(500).send('Internal Server Error');
+  }
 });
+
+
+app.get('/api/rooms/:id', async (req: Request, res: Response) => {
+  const roomId = req.params.id;  // Retrieve the room ID from the request parameters
+
+  try {
+      // Reference to the specific room in the Realtime Database
+      const roomRef = db.ref('/rooms/' + roomId);
+
+      // Retrieve room data from the database
+      roomRef.once('value', async (snapshot) => {
+          const roomData = snapshot.val();
+          if (!roomData) {
+              return res.status(404).send('Room not found');
+          }
+
+          // If the room data is found, retrieve the associated image URL from Firebase Storage
+          const imageRef = bucket.file(`images/${roomId}`);
+
+          // Get the URL for the image
+          const signedUrls = await imageRef.getSignedUrl({
+              action: 'read',
+              expires: '03-09-2491'  // Set far future expiry date
+          });
+
+          // Include the image URL in the room data response
+          roomData.imageUrl = signedUrls[0];
+
+          res.status(200).json(roomData);
+      }, (error) => {
+          console.error('Failed to retrieve data:', error);
+          res.status(500).send('Error retrieving room data');
+      });
+  } catch (error) {
+      console.error('Error fetching room:', error);
+      res.status(500).send('Internal Server Error');
+  }
+});
+
 
 // Create a new room
 app.post('/api/rooms', upload.single('photo'), async (req: Request, res: Response) => {
