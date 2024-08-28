@@ -21,5 +21,7 @@ admin.initializeApp({
   storageBucket: "gs://fir-hotel-2aebe.appspot.com"
   
 });
+const bucket = admin.storage().bucket();
 const db = admin.database();
 export default db;
+export {bucket};

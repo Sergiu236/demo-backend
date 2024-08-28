@@ -5,7 +5,9 @@ import { v4 as uuidv4 } from 'uuid';
 import multer from 'multer';  // Import multer for file uploads
 import admin from 'firebase-admin';  // Import firebase-admin for storage operations
 
-import db from '../firebaseConfig.js';
+import { getStorage, ref, uploadBytes } from 'firebase/storage';  // Import storage functions from firebase/storage
+
+import db, {bucket} from '../firebaseConfig.js';
 
 const app = express();
 const PORT = 5000;
@@ -123,16 +125,18 @@ app.post('/api/rooms', upload.single('photo'), async (req: Request, res: Respons
 
     const newRoom = { id: uuidv4(), name, price, description };
 
-    // Upload the photo to Firebase Storage
-    const bucket = admin.storage().bucket();
-    const fileUpload = bucket.file(`rooms/${newRoom.id}`);
+    const mimeType = req.headers['content-type']; // Ensure this header is set by client
+  const metadata = {
+    contentType: mimeType,
+  };
 
-    await fileUpload.save(file.buffer, {
-      metadata: {
-        contentType: file.mimetype
-      }
-    });
-
+  try {
+    const imageRef = bucket.file(`images/${newRoom.id}`);
+    await imageRef.save(file.buffer, metadata);
+    
+  } catch (error) {
+    console.error('Failed to upload image:', error);
+    res.status(500)}
     // Save the room data without the photo URL to Realtime Database
     const ref = db.ref('/rooms/' + newRoom.id);
     ref.set(newRoom, (error) => {
