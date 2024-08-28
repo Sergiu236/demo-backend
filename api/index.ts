@@ -2,6 +2,9 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
 
+import multer from 'multer';  // Import multer for file uploads
+import admin from 'firebase-admin';  // Import firebase-admin for storage operations
+
 import db from '../firebaseConfig.js';
 
 const app = express();
@@ -84,59 +87,69 @@ app.get('/api/reservations', (req, res) => {
 
 ///////////////////////////////// the new code for CRUD API for rooms ////////////////////////////
 
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
 // Get all rooms
-app.get('/api/rooms', (req, res) => {
+app.get('/api/rooms', async (req, res) => {
   const ref = db.ref('/rooms');
-  ref.once('value', (snapshot) => {
-    const rooms = Object.keys(snapshot.val()).map(key => snapshot.val()[key]);
+  ref.once('value', async (snapshot) => {
+    const roomsData = snapshot.val();
+    const rooms = await Promise.all(
+      Object.keys(roomsData).map(async (key) => {
+        const room = roomsData[key];
+        const photoUrl = await admin.storage().bucket().file(`rooms/${room.id}`).getSignedUrl({
+          action: 'read',
+          expires: '03-09-2491' // Set a far future date for expiration or adjust as needed
+        });
+        return { ...room, photo: photoUrl[0] };
+      })
+    );
     res.json(rooms);
   });
 });
 
-
-
 // Create a new room
-app.post('/api/rooms', (req, res) => {
-  const { name, price, description, photo } = req.body as Room;
-  const newRoom = { id: uuidv4(), name, price, description, photo };
-  const ref = db.ref('/rooms/' + newRoom.id);
-  ref.set( newRoom, error => {
-    if (error) {
-      res.status(500).send("Data could not be saved." + error);
-    } else {
-      res.send("Data saved successfully.");
+app.post('/api/rooms', upload.single('photo'), async (req: Request, res: Response) => {
+  try {
+    const { name, price, description } = req.body as Room;
+
+    // Cast req to any to bypass TypeScript's type checking for the file property
+    const file = (req as any).file;
+
+    if (!file) {
+      return res.status(400).send('No file uploaded.');
     }
-  });
-});
 
-// Update a room by ID
-app.put('/api/rooms/:id', (req, res) => {
-  const room = rooms.find(r => r.id === req.params.id);
-  if (room) {
-    const { name, price, description, photo } = req.body as Room;
-    room.name = name || room.name;
-    room.price = price || room.price;
-    room.description = description || room.description;
-    room.photo = photo || room.photo;
-    res.json(room);
-  } else {
-    res.status(404).json({ message: 'Room not found' });
+    const newRoom = { id: uuidv4(), name, price, description };
+
+    // Upload the photo to Firebase Storage
+    const bucket = admin.storage().bucket();
+    const fileUpload = bucket.file(`rooms/${newRoom.id}`);
+
+    await fileUpload.save(file.buffer, {
+      metadata: {
+        contentType: file.mimetype
+      }
+    });
+
+    // Save the room data without the photo URL to Realtime Database
+    const ref = db.ref('/rooms/' + newRoom.id);
+    ref.set(newRoom, (error) => {
+      if (error) {
+        res.status(500).send('Data could not be saved.' + error);
+      } else {
+        res.send('Room created successfully.');
+      }
+    });
+  } catch (error) {
+    console.error('Error creating room:', error);
+    res.status(500).send('Internal Server Error');
   }
 });
 
-// Delete a room by ID
-app.delete('/api/rooms/:id', (req, res) => {
-  const roomIndex = rooms.findIndex(r => r.id === req.params.id);
-  if (roomIndex !== -1) {
-    rooms.splice(roomIndex, 1);
-    res.json({ message: 'Room deleted successfully' });
-  } else {
-    res.status(404).json({ message: 'Room not found' });
-  }
-});
 
-
-
+///Lunch server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
