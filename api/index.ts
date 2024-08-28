@@ -125,9 +125,9 @@ app.post('/api/rooms', upload.single('photo'), async (req: Request, res: Respons
 
     const newRoom = { id: uuidv4(), name, price, description };
 
-    const mimeType = req.headers['content-type']; // Ensure this header is set by client
+    
   const metadata = {
-    contentType: mimeType,
+    contentType: file.mimetype,
   };
 
   try {
