@@ -5,6 +5,7 @@ import cors from 'cors';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
+import axios from 'axios';
 
 // Import the initialized Firebase Admin SDK instances
 import { admin, db, bucket, auth } from '../firebaseConfig.js'; // Adjust the path as needed
@@ -54,17 +55,58 @@ app.post('/api/signup', async (req: Request, res: Response) => {
     });
 });
 
-// Login endpoint (Note: Authentication is typically handled on the client side)
+// Define your Firebase Web API Key (replace with your actual key)
+const FIREBASE_WEB_API_KEY = 'AIzaSyDX9qt4TJfiCfMAl6rKI4KW0rMOypXuHmM';
+
+// Login endpoint using Firebase Auth REST API
 app.post('/api/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   try {
-    // Since Firebase Admin SDK doesn't support password authentication,
-    // login should be handled on the client side using Firebase Auth SDK.
-    res.status(501).json({ message: 'Login should be handled on the client side using Firebase Auth SDK.' });
+    // Make a POST request to Firebase Auth REST API to sign in the user
+    const response = await axios.post(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_WEB_API_KEY}`,
+      {
+        email: email,
+        password: password,
+        returnSecureToken: true,
+      }
+    );
+
+    const { idToken, refreshToken, expiresIn, localId } = response.data;
+
+    // Optionally, verify the ID token using Firebase Admin SDK
+    const decodedToken = await auth.verifyIdToken(idToken);
+
+    // Return the tokens and user information to the client
+    res.json({
+      uid: localId,
+      idToken: idToken,
+      refreshToken: refreshToken,
+      expiresIn: expiresIn,
+      message: 'Login successful',
+    });
   } catch (error: any) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Error logging in', error: error.message });
+    console.error('Login error:', error.response?.data || error.message);
+
+    // Handle errors returned by the Firebase Auth REST API
+    let errorMessage = 'An error occurred during login.';
+    if (error.response && error.response.data && error.response.data.error) {
+      switch (error.response.data.error.message) {
+        case 'EMAIL_NOT_FOUND':
+          errorMessage = 'Email address not found.';
+          break;
+        case 'INVALID_PASSWORD':
+          errorMessage = 'Invalid password.';
+          break;
+        case 'USER_DISABLED':
+          errorMessage = 'User account has been disabled.';
+          break;
+        default:
+          errorMessage = error.response.data.error.message;
+      }
+    }
+    res.status(400).json({ error: errorMessage });
   }
 });
 
