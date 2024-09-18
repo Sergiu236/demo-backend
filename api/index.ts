@@ -1,15 +1,13 @@
+// index.ts
+
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
-import multer from 'multer';  // Import multer for file uploads
-import admin from 'firebase-admin';  // Import firebase-admin for storage operations
-import { getStorage, ref, uploadBytes } from 'firebase/storage';  // Import storage functions from firebase/storage
-import db, { bucket, auth } from '../firebaseConfig.js'; // Ensure this path is correct
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import path from 'path';
 
-
-// Firebase admin initialization here (if not already configured in firebaseConfig.js)
-// Initialize Firebase Admin with credentials and configurations as needed
+// Import the initialized Firebase Admin SDK instances
+import { admin, db, bucket, auth } from '../firebaseConfig.js'; // Adjust the path as needed
 
 const app = express();
 const PORT = 5000;
@@ -20,7 +18,7 @@ interface Room {
   name: string;
   price: number;
   description: string;
-  photo: string;
+  photo?: string;
 }
 
 interface Reservation {
@@ -35,113 +33,135 @@ interface Reservation {
 app.use(cors());
 app.use(express.json());
 
-
-
-// Helper function to generate a custom token
-async function generateToken(uid: string) {
-  const customToken = await admin.auth().createCustomToken(uid);
-  return customToken;
-}
-
-// Signup endpoint
+// Signup endpoint using Firebase Admin SDK
 app.post('/api/signup', async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
-  createUserWithEmailAndPassword(auth, email, password)
-    .then((userCredential) => {
-      // Signed up
-      const user = userCredential.user;
-      res.status(201).json({ uid: user.uid, message: 'User created successfully' });
+  auth
+    .createUser({
+      email: email,
+      password: password,
+    })
+    .then((userRecord) => {
+      // Signed up successfully
+      res.status(201).json({ uid: userRecord.uid, message: 'User created successfully' });
     })
     .catch((error) => {
+      console.error('Signup error:', error);
       const errorCode = error.code;
       const errorMessage = error.message;
       res.status(400).json({ errorCode, errorMessage });
     });
 });
 
-
-// Login endpoint
+// Login endpoint (Note: Authentication is typically handled on the client side)
 app.post('/api/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
+
   try {
-    const user = await admin.auth().getUserByEmail(email);
-    const token = await generateToken(user.uid);
-    res.json({ uid: user.uid, token: token, message: 'Login successful' });
-  } catch (error) {
+    // Since Firebase Admin SDK doesn't support password authentication,
+    // login should be handled on the client side using Firebase Auth SDK.
+    res.status(501).json({ message: 'Login should be handled on the client side using Firebase Auth SDK.' });
+  } catch (error: any) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Error logging in', error: error.message });
   }
 });
 
-// Existing room and reservation API endpoints
-app.post('/api/reserve', (req, res) => {
+// Existing room and reservation API endpoints remain mostly unchanged...
+
+// Reservation endpoint
+app.post('/api/reserve', (req: Request, res: Response) => {
   const { name, email, phone, roomId } = req.body as Reservation;
   if (!name || !email || !phone || !roomId) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
   const id = uuidv4();
 
-  const reservation: Reservation = { id, name, email, phone, roomId, date: "" };
+  const reservation: Reservation = { id, name, email, phone, roomId, date: '' };
 
   const ref = db.ref('/client/' + id);
-  ref.set(reservation, error => {
+  ref.set(reservation, (error) => {
     if (error) {
-      res.status(500).send("Data could not be saved." + error);
+      res.status(500).send('Data could not be saved.' + error);
     } else {
-      res.send("Data saved successfully.");
+      res.send('Data saved successfully.');
     }
   });
 });
 
-app.get('/api/reservations', (req, res) => {
+// Get all reservations
+app.get('/api/reservations', (req: Request, res: Response) => {
   const ref = db.ref('/client');
-  ref.once('value', (snapshot) => {
-    const reservations = Object.keys(snapshot.val()).map(key => snapshot.val()[key]);
-    res.json(reservations);
-  });
+  ref.once(
+    'value',
+    (snapshot) => {
+      const reservationsData = snapshot.val();
+      if (reservationsData) {
+        const reservations = Object.keys(reservationsData).map((key) => reservationsData[key]);
+        res.json(reservations);
+      } else {
+        res.json([]);
+      }
+    },
+    (error) => {
+      console.error('Failed to retrieve data:', error);
+      res.status(500).send('Error retrieving reservations data');
+    }
+  );
 });
 
+// Multer setup for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 // Get all rooms
 app.get('/api/rooms', async (req: Request, res: Response) => {
   try {
-      // Reference to the rooms collection in the Realtime Database
-      const roomsRef = db.ref('/rooms');
+    const roomsRef = db.ref('/rooms');
 
-      // Retrieve all room data from the database
-      roomsRef.once('value', async (snapshot) => {
-          const rooms = snapshot.val();
-          if (!rooms) {
-              return res.status(404).send('No rooms found');
-          }
+    roomsRef.once(
+      'value',
+      async (snapshot) => {
+        const roomsData = snapshot.val();
+        if (!roomsData) {
+          return res.status(404).send('No rooms found');
+        }
 
-          // Prepare to fetch URLs from Firebase Storage for each room
-          const roomsWithImages = await Promise.all(Object.keys(rooms).map(async (roomId) => {
-              const roomData = rooms[roomId];
-              const imageRef = bucket.file(`images/${roomId}`);
+        // Fetch image URLs from Firebase Storage for each room
+        const roomsWithImages = await Promise.all(
+          Object.keys(roomsData).map(async (roomId) => {
+            const roomData = roomsData[roomId];
+            const imageRef = bucket.file(`images/${roomId}`);
 
-              // Get the URL for the image
-              const signedUrls = await imageRef.getSignedUrl({
-                  action: 'read',
-                  expires: '03-09-2491'  // Set far future expiry date
+            try {
+              // Get signed URL for the image
+              const [signedUrl] = await imageRef.getSignedUrl({
+                action: 'read',
+                expires: '03-09-2491', // Far future expiry date
               });
 
               // Add the image URL to the room data
-              roomData.photo = signedUrls[0];
-              return roomData;  // Return the enhanced room data
-          }));
+              roomData.photo = signedUrl;
+            } catch (error) {
+              console.error(`Error getting signed URL for room ${roomId}:`, error);
+              roomData.photo = ''; // Set a default or empty photo URL
+            }
 
-          res.status(200).json(roomsWithImages);
-      }, (error) => {
-          console.error('Failed to retrieve data:', error);
-          res.status(500).send('Error retrieving rooms data');
-      });
+            return roomData; // Return the enhanced room data
+          })
+        );
+
+        res.status(200).json(roomsWithImages);
+      },
+      (error) => {
+        console.error('Failed to retrieve data:', error);
+        res.status(500).send('Error retrieving rooms data');
+      }
+    );
   } catch (error) {
-      console.error('Error fetching rooms:', error);
-      res.status(500).send('Internal Server Error');
+    console.error('Error fetching rooms:', error);
+    res.status(500).send('Internal Server Error');
   }
 });
 
@@ -150,25 +170,25 @@ app.post('/api/rooms', upload.single('photo'), async (req: Request, res: Respons
   try {
     const { name, price, description } = req.body as Room;
 
-    // Cast req to any to bypass TypeScript's type checking for the file property
     const file = (req as any).file;
 
     if (!file) {
       return res.status(400).send('No file uploaded.');
     }
 
-    const newRoom = { id: uuidv4(), name, price, description };
+    const newRoomId = uuidv4();
+    const newRoom: Room = { id: newRoomId, name, price, description };
 
     const metadata = {
       contentType: file.mimetype,
     };
 
-    try{
-      const imageRef = bucket.file(`images/${newRoom.id}`);
+    try {
+      const imageRef = bucket.file(`images/${newRoomId}`);
       await imageRef.save(file.buffer, metadata);
 
       // Save the room data without the photo URL to Realtime Database
-      const ref = db.ref('/rooms/' + newRoom.id);
+      const ref = db.ref('/rooms/' + newRoomId);
       ref.set(newRoom, (error) => {
         if (error) {
           res.status(500).send('Data could not be saved.' + error);
@@ -190,8 +210,3 @@ app.post('/api/rooms', upload.single('photo'), async (req: Request, res: Respons
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
-
-
-    
-
-    
