@@ -4,8 +4,9 @@ import { v4 as uuidv4 } from 'uuid';
 import multer from 'multer';  // Import multer for file uploads
 import admin from 'firebase-admin';  // Import firebase-admin for storage operations
 import { getStorage, ref, uploadBytes } from 'firebase/storage';  // Import storage functions from firebase/storage
-import db, { bucket } from '../firebaseConfig.js'; // Ensure this path is correct
-import bcrypt from 'bcrypt';
+import db, { bucket, auth } from '../firebaseConfig.js'; // Ensure this path is correct
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+
 
 // Firebase admin initialization here (if not already configured in firebaseConfig.js)
 // Initialize Firebase Admin with credentials and configurations as needed
@@ -34,14 +35,7 @@ interface Reservation {
 app.use(cors());
 app.use(express.json());
 
-// Helper function to create a new user
-async function createUser(email: string, password: string) {
-  const userRecord = await admin.auth().createUser({
-    email: email,
-    password: password,
-  });
-  return userRecord;
-}
+
 
 // Helper function to generate a custom token
 async function generateToken(uid: string) {
@@ -49,31 +43,23 @@ async function generateToken(uid: string) {
   return customToken;
 }
 
-// Endpoint for user signup
+// Signup endpoint
 app.post('/api/signup', async (req: Request, res: Response) => {
   const { email, password } = req.body;
-  try {
-    const saltRounds = 10; // You can adjust the salt rounds as necessary
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Creating user in Firebase Authentication
-    const userRecord = await admin.auth().createUser({
-      email: email,
-      password: password
+  createUserWithEmailAndPassword(auth, email, password)
+    .then((userCredential) => {
+      // Signed up
+      const user = userCredential.user;
+      res.status(201).json({ uid: user.uid, message: 'User created successfully' });
+    })
+    .catch((error) => {
+      const errorCode = error.code;
+      const errorMessage = error.message;
+      res.status(400).json({ errorCode, errorMessage });
     });
-
-    // Storing hashed password and email in Firebase Realtime Database
-    await db.ref('users/' + userRecord.uid).set({
-      email: email,
-      password: hashedPassword
-    });
-
-    res.status(201).send('User created successfully with UID: ' + userRecord.uid);
-  } catch (error) {
-    console.error('Signup error:', error);
-    res.status(500).json({ message: 'Error signing up user', error: error.message });
-  }
 });
+
 
 // Login endpoint
 app.post('/api/login', async (req: Request, res: Response) => {
