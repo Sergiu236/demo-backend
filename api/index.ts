@@ -5,6 +5,7 @@ import multer from 'multer';  // Import multer for file uploads
 import admin from 'firebase-admin';  // Import firebase-admin for storage operations
 import { getStorage, ref, uploadBytes } from 'firebase/storage';  // Import storage functions from firebase/storage
 import db, { bucket } from '../firebaseConfig.js'; // Ensure this path is correct
+import bcrypt from 'bcrypt';
 
 // Firebase admin initialization here (if not already configured in firebaseConfig.js)
 // Initialize Firebase Admin with credentials and configurations as needed
@@ -48,16 +49,29 @@ async function generateToken(uid: string) {
   return customToken;
 }
 
-// Signup endpoint
+// Endpoint for user signup
 app.post('/api/signup', async (req: Request, res: Response) => {
   const { email, password } = req.body;
   try {
-    const userRecord = await createUser(email, password);
-    const token = await generateToken(userRecord.uid);
-    res.status(201).json({ uid: userRecord.uid, token: token, message: 'User created successfully' });
+    const saltRounds = 10; // You can adjust the salt rounds as necessary
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Creating user in Firebase Authentication
+    const userRecord = await admin.auth().createUser({
+      email: email,
+      password: password
+    });
+
+    // Storing hashed password and email in Firebase Realtime Database
+    await db.ref('users/' + userRecord.uid).set({
+      email: email,
+      password: hashedPassword
+    });
+
+    res.status(201).send('User created successfully with UID: ' + userRecord.uid);
   } catch (error) {
     console.error('Signup error:', error);
-    res.status(500).json({ message: 'Error creating user', error: error.message });
+    res.status(500).json({ message: 'Error signing up user', error: error.message });
   }
 });
 

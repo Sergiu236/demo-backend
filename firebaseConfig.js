@@ -1,4 +1,6 @@
 import admin from "firebase-admin";
+import { getAuth } from "firebase/auth";
+
 
 const serviceAccount = {
     "type": "service_account",
@@ -23,5 +25,7 @@ admin.initializeApp({
 });
 const bucket = admin.storage().bucket();
 const db = admin.database();
+const auth = getAuth(app);
 export default db;
+export {auth};
 export {bucket};
